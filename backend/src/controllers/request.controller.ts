@@ -1,12 +1,11 @@
 // backend/src/controllers/request.controller.ts
-// UPDATED WITH: Email Notifications, Duplicate Prevention, Faculty History, Enhanced QR
+// UPDATED WITH: Duplicate Prevention, Faculty History, Enhanced QR
 
 import { Request, Response } from 'express';
 import EarlyDepartureRequest from '../models/EarlyDepartureRequest';
 import User from '../models/User';
 import { AuditLog, Comment } from '../models';
 import QRCode from 'qrcode';
-import { sendRequestCreatedEmail, sendRequestApprovedEmail, sendRequestRejectedEmail } from '../utils/email';
 
 export const createRequest = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -81,31 +80,6 @@ export const createRequest = async (req: Request, res: Response): Promise<void> 
       action: 'created',
       details: { urgencyLevel: request.urgencyLevel }
     });
-
-    // ✅ SEND EMAIL TO HOD
-    try {
-      const hod = await User.findOne({
-        department: faculty.department,
-        role: 'HOD',
-        isActive: true
-      });
-
-      if (hod && hod.email) {
-        await sendRequestCreatedEmail({
-          hodEmail: hod.email,
-          hodName: `${hod.firstName} ${hod.lastName}`,
-          facultyName: `${faculty.firstName} ${faculty.lastName}`,
-          facultyEmail: faculty.email,
-          department: faculty.department,
-          departureDate: new Date(departureDate).toLocaleDateString(),
-          departureTime,
-          urgencyLevel: urgencyLevel || 'MEDIUM',
-          reason
-        });
-      }
-    } catch (emailError) {
-      console.error('Email notification failed:', emailError);
-    }
 
     const populatedRequest = await EarlyDepartureRequest.findById(request._id)
       .populate('facultyId', 'firstName lastName email employeeId department phoneNumber')
@@ -309,21 +283,6 @@ export const approveRequest = async (req: Request, res: Response): Promise<void>
       details: { exitPassNumber }
     });
 
-    // ✅ SEND APPROVAL EMAIL TO FACULTY
-    try {
-      await sendRequestApprovedEmail({
-        facultyEmail: facultyObj.email,
-        facultyName: `${facultyObj.firstName} ${facultyObj.lastName}`,
-        exitPassNumber,
-        departureDate: request.departureDate.toLocaleDateString(),
-        departureTime: request.departureTime,
-        hodComments: hodComments || 'None',
-        qrCode
-      });
-    } catch (emailError) {
-      console.error('Approval email failed:', emailError);
-    }
-
     const updated = await EarlyDepartureRequest.findById(req.params.id)
       .populate('facultyId', 'firstName lastName email employeeId department phoneNumber')
       .populate('hodId', 'firstName lastName email')
@@ -381,21 +340,6 @@ export const rejectRequest = async (req: Request, res: Response): Promise<void> 
       action: 'rejected',
       details: { rejectionReason }
     });
-
-    // ✅ SEND REJECTION EMAIL TO FACULTY
-    try {
-      const facultyObj = request.toObject().facultyId as any;
-      await sendRequestRejectedEmail({
-        facultyEmail: facultyObj.email,
-        facultyName: `${facultyObj.firstName} ${facultyObj.lastName}`,
-        departureDate: request.departureDate.toLocaleDateString(),
-        departureTime: request.departureTime,
-        rejectionReason,
-        hodComments: hodComments || 'None'
-      });
-    } catch (emailError) {
-      console.error('Rejection email failed:', emailError);
-    }
 
     const updated = await EarlyDepartureRequest.findById(req.params.id)
       .populate('facultyId', 'firstName lastName email employeeId department phoneNumber')
