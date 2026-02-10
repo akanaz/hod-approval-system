@@ -114,7 +114,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/files', uploadRoutes);
 
 // Health check
-app.get('/api/health', (req, res) => {
+app.get('/api/health', (_req, res) => {
   res.json({
     status: 'OK',
     timestamp: new Date().toISOString(),
