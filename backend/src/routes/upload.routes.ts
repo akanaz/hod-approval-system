@@ -1,4 +1,5 @@
 // backend/src/routes/upload.routes.ts
+// ✅ FIXED: Added filename validation to prevent directory traversal
 // FILE UPLOAD ROUTES
 
 import express, { Request, Response } from 'express';
@@ -63,7 +64,7 @@ const upload = multer({
 router.post(
   '/upload',
   authenticate,
-  authorizeRoles('FACULTY'),
+  authorizeRoles('FACULTY', 'HOD'), // ✅ Allow HOD to upload files too
   upload.array('files', 3), // Max 3 files
   async (req: Request, res: Response) => {
     try {
@@ -94,14 +95,40 @@ router.post(
   }
 );
 
-// Delete file endpoint
+// ✅ FIXED: Delete file endpoint with security validation
 router.delete(
   '/delete/:filename',
   authenticate,
   async (req: Request, res: Response) => {
     try {
       const { filename } = req.params;
+
+      // ✅ SECURITY FIX: Validate filename format
+      // Only allow filenames that match our generated pattern: doc-{timestamp}-{random}.{ext}
+      const filenameRegex = /^doc-\d+-\d+\.(pdf|docx?|jpe?g|png)$/i;
+      
+      if (!filenameRegex.test(filename)) {
+        res.status(400).json({ message: 'Invalid filename format' });
+        return;
+      }
+
       const filePath = path.join(uploadDir, filename);
+
+      // ✅ SECURITY FIX: Ensure resolved path is within uploadDir
+      // Prevents directory traversal attacks like ../../../etc/passwd
+      const resolvedPath = path.resolve(filePath);
+      const resolvedUploadDir = path.resolve(uploadDir);
+
+      if (!resolvedPath.startsWith(resolvedUploadDir)) {
+        res.status(400).json({ message: 'Invalid file path' });
+        return;
+      }
+
+      // ✅ SECURITY FIX: Additional check - filename shouldn't contain path separators
+      if (filename.includes('/') || filename.includes('\\')) {
+        res.status(400).json({ message: 'Invalid filename - no path separators allowed' });
+        return;
+      }
 
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);

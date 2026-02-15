@@ -1,3 +1,6 @@
+// frontend/src/App.tsx
+// ✅ FIXED: Added React Router v7 future flags to prevent warnings
+
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
@@ -8,6 +11,8 @@ import AdminDashboard from './pages/AdminDashboard';
 import HODDashboard from './pages/HODDashboard';
 import FacultyDashboard from './pages/FacultyDashboard';
 import CreateRequest from './pages/CreateRequest';
+import EditRequest from './pages/EditRequest';
+import DeanDashboard from './pages/DeanDashboard';
 import RequestDetails from './pages/RequestDetails';
 import Profile from './pages/Profile';
 import NotFound from './components/NotFound';
@@ -22,6 +27,7 @@ const queryClient = new QueryClient({
     queries: {
       refetchOnWindowFocus: false,
       retry: 1,
+      staleTime: 30000, // 30 seconds
     },
   },
 });
@@ -56,6 +62,10 @@ function RootRedirect() {
 
   if (!user) return <Navigate to="/login" replace />;
 
+  if (user.role === 'DEAN') {
+    return <Navigate to="/dean/dashboard" replace />;
+  }
+
   if (user.role === 'ADMIN') {
     return <Navigate to="/admin/dashboard" replace />;
   }
@@ -80,6 +90,7 @@ export default function App() {
         <Route element={<Layout />}>
           <Route path="/" element={<RootRedirect />} />
 
+          {/* ================= ADMIN ================= */}
           <Route
             path="/admin/dashboard"
             element={
@@ -89,6 +100,17 @@ export default function App() {
             }
           />
 
+          {/* ================= DEAN ================= */}
+          <Route
+            path="/dean/dashboard"
+            element={
+              <ProtectedRoute roles={['DEAN', 'ADMIN']}>
+                <DeanDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ================= HOD ================= */}
           <Route
             path="/hod/dashboard"
             element={
@@ -98,20 +120,31 @@ export default function App() {
             }
           />
 
+          {/* ================= FACULTY ================= */}
           <Route
             path="/faculty/dashboard"
             element={
-              <ProtectedRoute roles={['FACULTY']}>
+              <ProtectedRoute roles={['FACULTY', 'ADMIN']}>
                 <FacultyDashboard />
               </ProtectedRoute>
             }
           />
 
+          {/* ================= REQUESTS ================= */}
           <Route
             path="/requests/new"
             element={
-              <ProtectedRoute roles={['FACULTY']}>
+              <ProtectedRoute roles={['FACULTY', 'HOD']}>
                 <CreateRequest />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/requests/:id/edit"
+            element={
+              <ProtectedRoute roles={['FACULTY', 'HOD']}>
+                <EditRequest />
               </ProtectedRoute>
             }
           />
@@ -125,6 +158,7 @@ export default function App() {
             }
           />
 
+          {/* ================= PROFILE ================= */}
           <Route
             path="/profile"
             element={

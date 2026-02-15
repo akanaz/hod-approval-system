@@ -1,8 +1,15 @@
-// backend/src/middleware/auth.ts
+// backend/src/middleware/auth.middleware.ts
+// ✅ FIXED: Removed insecure JWT_SECRET fallback
 
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import User from '../models/User';
+
+// ✅ SECURITY FIX: Validate JWT_SECRET at module load
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('FATAL: JWT_SECRET environment variable is required');
+}
 
 declare global {
   namespace Express {
@@ -30,10 +37,7 @@ export const authenticate = async (
 
     const token = authHeader.split(' ')[1];
 
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || 'your-secret-key'
-    ) as {
+    const decoded = jwt.verify(token, JWT_SECRET) as {
       userId: string;
       email: string;
       role: string;
@@ -65,7 +69,11 @@ export const authorizeRoles =
     }
 
     if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ message: 'Access denied' });
+      return res.status(403).json({ 
+        message: 'Access denied',
+        required: roles,
+        current: req.user.role
+      });
     }
 
     return next();

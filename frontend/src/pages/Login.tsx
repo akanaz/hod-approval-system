@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
-import api from '../api';
+import api from '../services/api';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -15,6 +15,7 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation(); // ✅ Prevent any form propagation
 
     if (!email || !password) {
       toast.error('Please enter both email and password');
@@ -30,19 +31,58 @@ export default function Login() {
       login(token, user);
       toast.success(`Welcome back, ${user.firstName}!`);
 
-      // Route based on role
-      if (user.role === 'ADMIN') {
-        navigate('/admin/dashboard');
-      } else if (user.role === 'HOD') {
-        navigate('/hod/dashboard');
-      } else {
-        navigate('/faculty/dashboard');
-      }
+      // Small delay to show success message
+      setTimeout(() => {
+        // Route based on role
+        if (user.role === 'ADMIN') {
+          navigate('/admin/dashboard');
+        } else if (user.role === 'HOD') {
+          navigate('/hod/dashboard');
+        } else if (user.role === 'DEAN') {
+          navigate('/dean/dashboard');
+        } else {
+          navigate('/faculty/dashboard');
+        }
+      }, 500);
+      
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Login failed. Please check your credentials.';
-      toast.error(errorMessage);
-    } finally {
+      console.error('Login error:', error);
+      
+      // ✅ Keep loading false immediately on error
       setLoading(false);
+      
+      // Better error handling
+      let errorMessage = 'Login failed. Please try again.';
+      
+      if (error.response) {
+        // Server responded with error
+        errorMessage = error.response.data?.message || errorMessage;
+        
+        if (error.response.status === 401) {
+          errorMessage = 'Invalid email or password';
+        } else if (error.response.status === 404) {
+          errorMessage = 'User not found';
+        } else if (error.response.status === 403) {
+          errorMessage = 'Account is inactive. Contact administrator.';
+        }
+      } else if (error.request) {
+        // Request made but no response
+        errorMessage = 'Cannot connect to server. Please check your connection.';
+      }
+      
+      // ✅ Show error prominently
+      toast.error(errorMessage, {
+        duration: 5000,
+        position: 'top-center',
+        style: {
+          background: '#FEE2E2',
+          color: '#991B1B',
+          fontWeight: '600',
+          padding: '16px',
+          borderRadius: '12px',
+          border: '2px solid #DC2626',
+        },
+      });
     }
   };
 
@@ -60,13 +100,12 @@ export default function Login() {
         <div className="text-center mb-6 animate-fade-in">
           {/* Logo */}
           <div className="flex justify-center mb-4">
-  <img
-    src="/logo.png"
-    alt="HOD Approval System Logo"
-    className="w-24 h-24 object-contain"
-  />
-</div>
-
+            <img
+              src="/logo.png"
+              alt="HOD Approval System Logo"
+              className="w-24 h-24 object-contain"
+            />
+          </div>
 
           <p className="text-2xl font-semibold text-black mb-2 tracking-tight">
             Nitte Menakshi Institute of Technology
@@ -109,7 +148,7 @@ export default function Login() {
             {/* Password Field */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2">
-                🔒 Password
+                🔐 Password
               </label>
               <div className="relative">
                 <input
@@ -177,7 +216,7 @@ export default function Login() {
         {/* Footer Info */}
         <div className="text-center mt-6 text-slate-600 text-sm">
           <p className="flex items-center justify-center gap-2">
-            <span>🔐</span>
+            <span>🔒</span>
             Secure access for faculty and administrators
           </p>
         </div>

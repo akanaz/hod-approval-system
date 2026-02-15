@@ -9,21 +9,27 @@ export default function Layout() {
   const menuRef = useRef<HTMLDivElement>(null);
 
   const navItems =
-    user?.role === 'ADMIN'
-      ? [
+  user?.role === 'ADMIN'
+    ? [
         { path: '/admin/dashboard', label: 'Dashboard', icon: '📊' },
         { path: '/profile', label: 'Profile', icon: '👤' },
       ]
-      : user?.role === 'HOD'
-        ? [
+    : user?.role === 'HOD'
+      ? [
           { path: '/hod/dashboard', label: 'Dashboard', icon: '📊' },
           { path: '/profile', label: 'Profile', icon: '👤' },
         ]
+      : user?.role === 'DEAN'
+        ? [
+            { path: '/dean/dashboard', label: 'Dashboard', icon: '📊' },
+            { path: '/profile', label: 'Profile', icon: '👤' },
+          ]
         : [
-          { path: '/faculty/dashboard', label: 'Dashboard', icon: '📊' },
-          { path: '/requests/new', label: 'New Request', icon: '➕' },
-          { path: '/profile', label: 'Profile', icon: '👤' },
-        ];
+            { path: '/faculty/dashboard', label: 'Dashboard', icon: '📊' },
+            { path: '/requests/new', label: 'New Request', icon: '➕' },
+            { path: '/profile', label: 'Profile', icon: '👤' },
+          ];
+
 
   /* ================= CLICK OUTSIDE ================= */
 

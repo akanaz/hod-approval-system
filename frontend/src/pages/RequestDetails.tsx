@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import api from '../api';
+import api from '../services/api';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../components/LoadingSpinner';
 

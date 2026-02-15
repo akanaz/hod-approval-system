@@ -1,380 +1,461 @@
-import { useState } from 'react';
+// frontend/src/pages/CreateRequest.tsx
+// ✅ COMPLETE FIXED VERSION - File upload error fixed
+
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../api';
+import { useMutation } from '@tanstack/react-query';
+import api from '../services/api';
 import toast from 'react-hot-toast';
+import { Calendar, Clock, FileText, MapPin, AlertCircle, Upload, X } from 'lucide-react';
 
-const URGENCY_LEVELS = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
+/* ================= TYPES ================= */
 
-export default function CreateRequest() {
+type LeaveType = 'PARTIAL' | 'FULL_DAY';
+
+interface CreateRequestDTO {
+  leaveType: LeaveType;
+  departureDate: string;
+  departureTime?: string;
+  expectedReturnTime?: string;
+  reason: string;
+  destination?: string;
+  urgencyLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  currentWorkload?: string;
+  coverageArrangement?: string;
+  attachments?: FileAttachment[];
+}
+
+interface FileAttachment {
+  filename: string;
+  originalName: string;
+  mimetype: string; // ✅ FIXED: lowercase to match backend
+  mimeType?: string; // ✅ FIXED: Optional alias
+  size: number;
+}
+
+/* ================= HELPERS ================= */
+
+const formatFileSize = (bytes: number) => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+// ✅ FIXED: Handle both mimetype and mimeType
+const getFileIcon = (mimeType?: string) => {
+  const type = (mimeType || '').toLowerCase();
+  if (type.includes('pdf')) return '📄';
+  if (type.includes('image')) return '🖼️';
+  if (type.includes('word') || type.includes('document')) return '📝';
+  return '📎';
+};
+
+/* ================= COMPONENT ================= */
+
+const CreateRequest: React.FC = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
-  const [uploading, setUploading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<FileAttachment[]>([]);
 
-  const [form, setForm] = useState({
+  const [formData, setFormData] = useState({
+    leaveType: 'PARTIAL' as LeaveType,
     departureDate: '',
     departureTime: '',
     expectedReturnTime: '',
     reason: '',
     destination: '',
-    urgencyLevel: 'MEDIUM',
+    urgencyLevel: 'MEDIUM' as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL',
     currentWorkload: '',
     coverageArrangement: ''
   });
 
-  const handleChange = (e: any) => {
-    const { name, value } = e.target;
-    setForm(prev => ({ ...prev, [name]: value }));
+  const createMutation = useMutation({
+    mutationFn: (data: CreateRequestDTO) => api.post('/requests', data),
+    onSuccess: () => {
+      toast.success('Request submitted successfully!');
+      navigate('/faculty/dashboard');
+    },
+    onError: (error: any) => {
+      console.error('Create request error:', error);
+      const errorMsg = error.response?.data?.message || 'Failed to create request';
+      toast.error(errorMsg);
+    }
+  });
+
+  const checkExistingRequestForDate = async (date: string): Promise<boolean> => {
+    try {
+      const response = await api.get('/requests');
+      const requests = response.data.requests || [];
+      
+      return requests.some((req: any) => {
+        const reqDate = new Date(req.departureDate).toISOString().split('T')[0];
+        const checkDate = new Date(date).toISOString().split('T')[0];
+        return reqDate === checkDate && req.status === 'PENDING';
+      });
+    } catch (error) {
+      console.error('Error checking existing requests:', error);
+      return false;
+    }
   };
 
-  /* ================= FILE UPLOAD ================= */
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLeaveTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const leaveType = e.target.value as LeaveType;
+    setFormData(prev => ({
+      ...prev,
+      leaveType,
+      departureTime: leaveType === 'FULL_DAY' ? '' : prev.departureTime,
+      expectedReturnTime: leaveType === 'FULL_DAY' ? '' : prev.expectedReturnTime
+    }));
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    // Check total files limit
     if (uploadedFiles.length + files.length > 3) {
       toast.error('Maximum 3 files allowed');
+      e.target.value = '';
       return;
     }
 
-    setUploading(true);
+    setIsUploading(true);
 
     try {
       const formData = new FormData();
-      Array.from(files).forEach(file => {
-        // Validate file size
+      
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        if (!file) continue;
+        
         if (file.size > 5 * 1024 * 1024) {
-          toast.error(`${file.name} is too large (max 5MB)`);
-          return;
+          toast.error(`${file.name} exceeds 5MB limit`);
+          continue;
         }
-        formData.append('files', file);
-      });
 
-      const res = await api.post('/files/upload', formData, {
+        const allowedTypes = [
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'image/jpeg',
+          'image/jpg',
+          'image/png'
+        ];
+
+        if (!allowedTypes.includes(file.type)) {
+          toast.error(`${file.name} - Invalid file type`);
+          continue;
+        }
+
+        formData.append('files', file);
+      }
+
+      if (!formData.has('files')) {
+        toast.error('No valid files to upload');
+        setIsUploading(false);
+        e.target.value = '';
+        return;
+      }
+
+      const response = await api.post('/files/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
-      setUploadedFiles(prev => [...prev, ...res.data.files]);
-      toast.success(`${files.length} file(s) uploaded`);
+      const uploadedFileData = response.data.files || [];
+      setUploadedFiles(prev => [...prev, ...uploadedFileData]);
+      toast.success(`${uploadedFileData.length} file(s) uploaded successfully`);
+
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Upload failed');
+      console.error('Upload error:', error);
+      toast.error(error.response?.data?.message || 'File upload failed');
     } finally {
-      setUploading(false);
-      e.target.value = ''; // Reset input
+      setIsUploading(false);
+      e.target.value = '';
     }
   };
 
-  const removeFile = async (index: number) => {
-    const file = uploadedFiles[index];
-    
+  const handleRemoveFile = async (filename: string) => {
     try {
-      // Delete from server
-      const filename = file.path.split('/').pop();
       await api.delete(`/files/delete/${filename}`);
-      
-      // Remove from state
-      setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+      setUploadedFiles(prev => prev.filter(f => f.filename !== filename));
       toast.success('File removed');
     } catch (error) {
+      console.error('Remove file error:', error);
       toast.error('Failed to remove file');
     }
   };
 
-  /* ================= SUBMIT ================= */
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!form.departureDate || !form.departureTime || !form.reason.trim()) {
-      toast.error('Please fill all required fields');
+    if (!formData.departureDate || !formData.reason) {
+      toast.error('Please fill in all required fields');
       return;
     }
 
-    const selectedDate = new Date(form.departureDate);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    if (selectedDate < today) {
-      toast.error('Cannot create request for past dates');
+    if (formData.leaveType === 'PARTIAL' && !formData.departureTime) {
+      toast.error('Departure time is required for partial day leave');
       return;
     }
 
-    setLoading(true);
-
-    try {
-      const payload = {
-        ...form,
-        attachments: uploadedFiles // Include uploaded files
-      };
-
-      await api.post('/requests', payload);
-      toast.success('Request submitted! HOD notified via email.');
-      navigate('/faculty/dashboard');
-    } catch (error: any) {
-      if (error.response?.status === 409) {
-        toast.error(error.response.data.message || 'Duplicate request for this date');
-      } else {
-        toast.error(error.response?.data?.message || 'Failed to create request');
-      }
-    } finally {
-      setLoading(false);
+    const hasExisting = await checkExistingRequestForDate(formData.departureDate);
+    if (hasExisting) {
+      toast.error('You already have a request for this date');
+      return;
     }
+
+    const submitData: CreateRequestDTO = {
+      ...formData,
+      attachments: uploadedFiles
+    };
+
+    createMutation.mutate(submitData);
   };
 
   return (
-    <div className="max-w-3xl mx-auto animate-fade-in">
-      <div className="mb-6">
-        <button
-          onClick={() => navigate(-1)}
-          className="text-blue-600 hover:text-blue-800 transition-colors mb-4 flex items-center gap-2 font-medium"
-        >
-          ← Back
-        </button>
+    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-3xl mx-auto">
+        <div className="bg-white shadow rounded-lg mb-6">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h1 className="text-2xl font-bold text-gray-900">
+              Create Early Departure Request
+            </h1>
+            <p className="mt-1 text-sm text-gray-600">
+              Fill in the details for your early departure request
+            </p>
+          </div>
 
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-6">
-          <h1 className="text-3xl font-bold bg-clip-text mb-2">
-            📝 New Early Departure Request
-          </h1>
-          <p className="text-slate-600">
-            Fill in the details. HOD will be notified automatically.
-          </p>
-        </div>
-      </div>
-
-      <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
-        
-        {/* Date & Time */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-bold text-slate-800 border-b pb-2">📅 Date & Time</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <form onSubmit={handleSubmit} className="p-6 space-y-6">
+            
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Leave Type <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="leaveType"
+                value={formData.leaveType}
+                onChange={handleLeaveTypeChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              >
+                <option value="PARTIAL">Partial Day (Early Departure)</option>
+                <option value="FULL_DAY">Full Day Leave</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Calendar className="inline w-4 h-4 mr-1" />
                 Departure Date <span className="text-red-500">*</span>
               </label>
               <input
                 type="date"
                 name="departureDate"
-                value={form.departureDate}
-                onChange={handleChange}
-                required
+                value={formData.departureDate}
+                onChange={handleInputChange}
                 min={new Date().toISOString().split('T')[0]}
-                className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Departure Time <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="time"
-                name="departureTime"
-                value={form.departureTime}
-                onChange={handleChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
-                className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+            </div>
+
+            {formData.leaveType === 'PARTIAL' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Clock className="inline w-4 h-4 mr-1" />
+                    Departure Time <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="time"
+                    name="departureTime"
+                    value={formData.departureTime}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Expected Return Time
+                  </label>
+                  <input
+                    type="time"
+                    name="expectedReturnTime"
+                    value={formData.expectedReturnTime}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <FileText className="inline w-4 h-4 mr-1" />
+                Reason <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                name="reason"
+                value={formData.reason}
+                onChange={handleInputChange}
+                rows={4}
+                placeholder="Please provide a detailed reason for your early departure request"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Expected Return Time
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <MapPin className="inline w-4 h-4 mr-1" />
+                Destination
               </label>
               <input
-                type="time"
-                name="expectedReturnTime"
-                value={form.expectedReturnTime}
-                onChange={handleChange}
-                className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                type="text"
+                name="destination"
+                value={formData.destination}
+                onChange={handleInputChange}
+                placeholder="Where will you be going? (Optional)"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Urgency Level <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <AlertCircle className="inline w-4 h-4 mr-1" />
+                Urgency Level
               </label>
               <select
                 name="urgencyLevel"
-                value={form.urgencyLevel}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                value={formData.urgencyLevel}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                {URGENCY_LEVELS.map(level => (
-                  <option key={level} value={level}>{level}</option>
-                ))}
+                <option value="LOW">Low</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="HIGH">High</option>
+                <option value="CRITICAL">Critical</option>
               </select>
             </div>
-          </div>
-        </div>
 
-        {/* Request Details */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-bold text-slate-800 border-b pb-2">📋 Request Details</h2>
-          
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Reason <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              name="reason"
-              value={form.reason}
-              onChange={handleChange}
-              required
-              rows={4}
-              placeholder="Detailed reason..."
-              className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Destination
-            </label>
-            <input
-              type="text"
-              name="destination"
-              value={form.destination}
-              onChange={handleChange}
-              placeholder="Where are you going?"
-              className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-            />
-          </div>
-        </div>
-
-        {/* Additional Info */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-bold text-slate-800 border-b pb-2">ℹ️ Additional Info</h2>
-          
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Current Workload
-            </label>
-            <textarea
-              name="currentWorkload"
-              value={form.currentWorkload}
-              onChange={handleChange}
-              rows={3}
-              placeholder="Describe responsibilities..."
-              className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Coverage Arrangement
-            </label>
-            <textarea
-              name="coverageArrangement"
-              value={form.coverageArrangement}
-              onChange={handleChange}
-              rows={3}
-              placeholder="Who will cover your duties?"
-              className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-            />
-          </div>
-        </div>
-
-        {/* ✅ FILE UPLOAD SECTION */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-bold text-slate-800 border-b pb-2">📎 Supporting Documents</h2>
-          
-          <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-blue-400 transition-colors">
-            <input
-              type="file"
-              id="file-upload"
-              multiple
-              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-              onChange={handleFileSelect}
-              disabled={uploading || uploadedFiles.length >= 3}
-              className="hidden"
-            />
-            <label
-              htmlFor="file-upload"
-              className={`cursor-pointer ${uploading || uploadedFiles.length >= 3 ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              <div className="text-4xl mb-2">📎</div>
-              <p className="text-slate-700 font-semibold mb-1">
-                {uploading ? 'Uploading...' : 'Click or drag files here'}
-              </p>
-              <p className="text-sm text-slate-500">
-                PDF, DOC, DOCX, JPG, PNG • Max 5MB • Up to 3 files
-              </p>
-            </label>
-          </div>
-
-          {/* Uploaded Files List */}
-          {uploadedFiles.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-slate-700">
-                Uploaded Files ({uploadedFiles.length}/3):
-              </p>
-              {uploadedFiles.map((file, index) => (
-                <div key={index} className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg p-3">
-                  <div className="flex items-center gap-3 flex-1">
-                    <span className="text-2xl">
-                      {file.mimetype.includes('pdf') ? '📄' : 
-                       file.mimetype.includes('image') ? '🖼️' : '📝'}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-slate-800 truncate">
-                        {file.originalName}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {(file.size / 1024).toFixed(1)} KB
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeFile(index)}
-                    className="text-red-600 hover:text-red-800 font-bold text-lg px-2"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Important Notice */}
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-          <div className="flex items-start gap-3">
-            <span className="text-2xl">ℹ️</span>
             <div>
-              <h3 className="font-semibold text-blue-900 mb-1">Important:</h3>
-              <ul className="text-sm text-blue-800 space-y-1">
-                <li>• One request per date only</li>
-                <li>• You'll get email when processed</li>
-                <li>• Attach relevant documents if needed</li>
-              </ul>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Current Workload
+              </label>
+              <textarea
+                name="currentWorkload"
+                value={formData.currentWorkload}
+                onChange={handleInputChange}
+                rows={2}
+                placeholder="Describe your current workload and any pending tasks"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              />
             </div>
-          </div>
-        </div>
 
-        {/* Buttons */}
-        <div className="flex gap-4 pt-4">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            disabled={uploading || loading}
-            className="flex-1 px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-semibold hover:bg-slate-200 disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={loading || uploading}
-            className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 shadow-md hover:shadow-lg disabled:opacity-50"
-          >
-            {loading ? 'Submitting...' : uploading ? 'Uploading...' : 'Submit Request'}
-          </button>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Coverage Arrangement
+              </label>
+              <textarea
+                name="coverageArrangement"
+                value={formData.coverageArrangement}
+                onChange={handleInputChange}
+                rows={2}
+                placeholder="Who will cover your responsibilities while you're away?"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              />
+            </div>
+
+            <div className="border-t border-gray-200 pt-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Upload className="inline w-4 h-4 mr-1" />
+                Supporting Documents
+              </label>
+              <p className="text-xs text-gray-500 mb-3">
+                Upload up to 3 files (PDF, DOC, DOCX, JPG, PNG - Max 5MB each)
+              </p>
+              <input
+                type="file"
+                onChange={handleFileUpload}
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                multiple
+                disabled={isUploading || uploadedFiles.length >= 3}
+                className="block w-full text-sm text-gray-500
+                  file:mr-4 file:py-2 file:px-4
+                  file:rounded-lg file:border-0
+                  file:text-sm file:font-semibold
+                  file:bg-blue-50 file:text-blue-700
+                  hover:file:bg-blue-100
+                  disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+
+              {uploadedFiles.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  {uploadedFiles.map((file) => (
+                    <div
+                      key={file.filename}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                    >
+                      <div className="flex items-center space-x-3">
+                        {/* ✅ FIXED: Handle both mimetype and mimeType */}
+                        <span className="text-2xl">{getFileIcon(file.mimetype || file.mimeType)}</span>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">
+                            {file.originalName}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {formatFileSize(file.size)}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFile(file.filename)}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {isUploading && (
+                <p className="mt-2 text-sm text-blue-600">
+                  Uploading files...
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end space-x-4 pt-6 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={() => navigate('/faculty/dashboard')}
+                className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={createMutation.isPending || isUploading}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {createMutation.isPending ? 'Submitting...' : 'Submit Request'}
+              </button>
+            </div>
+          </form>
         </div>
-      </form>
+      </div>
     </div>
   );
-}
+};
+
+export default CreateRequest;

@@ -1,9 +1,19 @@
 // backend/src/controllers/auth.controller.ts
+// ✅ FIXED: Removed hardcoded JWT secret fallback
+// ✅ UPDATED: Support DEAN role in registration
+import dotenv from 'dotenv';
+dotenv.config();
 
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import User from '../models/User';
+
+// ✅ SECURITY FIX: Validate JWT_SECRET at module level
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('FATAL: JWT_SECRET is required in environment variables');
+}
 
 // Validation schemas
 const registerSchema = z.object({
@@ -13,7 +23,7 @@ const registerSchema = z.object({
   lastName: z.string().min(1),
   employeeId: z.string().min(1),
   department: z.string().min(1),
-  role: z.enum(['FACULTY', 'HOD', 'ADMIN']).optional(),
+  role: z.enum(['FACULTY', 'HOD', 'DEAN', 'ADMIN']).optional(), // ✅ Added DEAN
   phoneNumber: z.string().optional()
 });
 
@@ -22,11 +32,11 @@ const loginSchema = z.object({
   password: z.string().min(1)
 });
 
-// Generate JWT token
+// ✅ FIXED: No fallback secret
 const generateToken = (userId: string, email: string, role: string): string => {
   return jwt.sign(
     { userId, email, role },
-    process.env.JWT_SECRET || 'your-secret-key',
+    JWT_SECRET, // ✅ Will throw if undefined
     { expiresIn: '7d' }
   );
 };
@@ -52,7 +62,7 @@ export const register = async (
       });
     }
 
-    // Additional validation: Check if department already has a HOD
+    // ✅ UPDATED: Check if department already has HOD or DEAN
     if (validatedData.role === 'HOD') {
       const existingHOD = await User.findOne({
         department: validatedData.department,
@@ -63,6 +73,20 @@ export const register = async (
       if (existingHOD) {
         return res.status(400).json({
           message: `Department '${validatedData.department}' already has a HOD (${existingHOD.firstName} ${existingHOD.lastName}). Each department can have only one HOD.`
+        });
+      }
+    }
+
+    // ✅ NEW: DEAN uniqueness check (only one dean for entire institution)
+    if (validatedData.role === 'DEAN') {
+      const existingDean = await User.findOne({
+        role: 'DEAN',
+        isActive: true
+      });
+
+      if (existingDean) {
+        return res.status(400).json({
+          message: `A Dean already exists (${existingDean.firstName} ${existingDean.lastName}). Only one Dean is allowed.`
         });
       }
     }
@@ -133,10 +157,25 @@ export const login = async (
     const userObject = user.toObject();
     const { password, ...userWithoutPassword } = userObject;
 
+    // ✅ NEW: Include delegation info for faculty with delegated rights
+    let delegationInfo = null;
+    if (user.role === 'FACULTY' && user.hasDelegatedRights()) {
+      delegationInfo = {
+        delegatedBy: user.delegatedBy,
+        startDate: user.delegationStartDate,
+        endDate: user.delegationEndDate,
+        permissions: user.delegationPermissions,
+        isActive: user.hasDelegatedRights()
+      };
+    }
+
     return res.json({
       message: 'Login successful',
       token,
-      user: userWithoutPassword
+      user: {
+        ...userWithoutPassword,
+        delegation: delegationInfo
+      }
     });
 
   } catch (error) {
@@ -169,7 +208,24 @@ export const getProfile = async (
       return res.status(404).json({ message: 'User not found' });
     }
 
-    return res.json({ user });
+    // ✅ NEW: Include delegation info
+    let delegationInfo = null;
+    if (user.role === 'FACULTY' && user.hasDelegatedRights()) {
+      delegationInfo = {
+        delegatedBy: user.delegatedBy,
+        startDate: user.delegationStartDate,
+        endDate: user.delegationEndDate,
+        permissions: user.delegationPermissions,
+        isActive: user.hasDelegatedRights()
+      };
+    }
+
+    return res.json({ 
+      user: {
+        ...user.toObject(),
+        delegation: delegationInfo
+      }
+    });
 
   } catch (error) {
     console.error('Get profile error:', error);

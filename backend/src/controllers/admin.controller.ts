@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import User from '../models/User';
 import EarlyDepartureRequest from '../models/EarlyDepartureRequest';
+import { AuditLog } from '../models';
 
 /* ================= ADMIN DASHBOARD ================= */
 
@@ -134,10 +135,10 @@ export const getAdminDashboard = async (
       monthlyTrend,
       topFaculty,
       avgApprovalTimeHours,
-    });
+    });return;
   } catch (error) {
     console.error('Get admin dashboard error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error' });return;
   }
 };
 
@@ -230,7 +231,7 @@ export const createUser = async (
         department: user.department,
         employeeId: user.employeeId,
       }
-    });
+    });return;
   } catch (err: any) {
     console.error('Create user error:', err);
     
@@ -240,7 +241,7 @@ export const createUser = async (
       return;
     }
     
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error' });return;
   }
 };
 
@@ -269,10 +270,10 @@ export const getAllUsers = async (
       createdAt: u.createdAt,
     }));
 
-    res.json({ users: formattedUsers });
+    res.json({ users: formattedUsers });return;
   } catch (err) {
     console.error('Get users error:', err);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error' });return;
   }
 };
 
@@ -299,10 +300,10 @@ export const toggleUserStatus = async (
         id: user._id,
         isActive: user.isActive
       }
-    });
+    });return;
   } catch (err) {
     console.error('Toggle user error:', err);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error' });return;
   }
 };
 
@@ -330,9 +331,103 @@ export const deleteUser = async (
 
     res.json({
       message: `${user.role} deleted successfully`,
-    });
+    });return;
   } catch (err) {
     console.error('Delete user error:', err);
+    res.status(500).json({ message: 'Server error' });return;
+  }
+};
+
+
+
+// backend/src/controllers/admin.controller.ts
+// ✅ COMPLETE FIX: Returns details as formatted string for frontend
+
+export const getActivityLogs = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const logs = await AuditLog.find()
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .populate('userId', 'firstName lastName role email')
+      .lean();
+
+    // ✅ Format logs with proper details string
+    const formattedLogs = logs.map(log => {
+      const user = log.userId as any;
+      
+      const userName = user && user.firstName 
+        ? `${user.firstName} ${user.lastName}`
+        : 'Deleted User';
+      
+      const userRole = user && user.role 
+        ? user.role 
+        : 'Unknown';
+
+      // ✅ FIXED: Convert details object to readable string
+      let detailsText = 'No details';
+      
+      if (log.details && typeof log.details === 'object') {
+        // Format based on action type
+        switch(log.action) {
+          case 'delegation_granted':
+            detailsText = `Delegated to ${log.details.delegatedToName} from ${new Date(log.details.startDate).toLocaleDateString()} to ${new Date(log.details.endDate).toLocaleDateString()}`;
+            break;
+          
+          case 'delegation_revoked':
+            detailsText = `Revoked delegation from ${log.details.facultyName}`;
+            break;
+          
+          case 'delegation_extended':
+            detailsText = `Extended delegation for ${log.details.facultyName} until ${new Date(log.details.newEndDate).toLocaleDateString()}`;
+            break;
+          
+          case 'created':
+            detailsText = `Request created - ${log.details.leaveType || 'N/A'} leave (${log.details.urgencyLevel || 'N/A'} priority)`;
+            break;
+          
+          case 'approved':
+            detailsText = `Request approved${log.details.exitPassNumber ? ` - Pass #${log.details.exitPassNumber}` : ''}${log.details.approvedByRole ? ` by ${log.details.approvedByRole}` : ''}`;
+            break;
+          
+          case 'rejected':
+            detailsText = `Request rejected${log.details.rejectionReason ? `: ${log.details.rejectionReason}` : ''}${log.details.rejectedByRole ? ` by ${log.details.rejectedByRole}` : ''}`;
+            break;
+          
+          case 'edited':
+            detailsText = `Request edited - ${Object.keys(log.details.changes || {}).join(', ')}`;
+            break;
+          
+          case 'cancelled':
+            detailsText = `Request cancelled${log.details.cancellationReason ? `: ${log.details.cancellationReason}` : ''}`;
+            break;
+          
+          default:
+            // Fallback: stringify the object
+            detailsText = Object.entries(log.details)
+              .map(([key, value]) => `${key}: ${value}`)
+              .join(', ');
+        }
+      } else if (typeof log.details === 'string') {
+        detailsText = log.details;
+      }
+
+      return {
+        id: log._id.toString(),
+        action: log.action,
+        user: userName,
+        role: userRole,
+        timestamp: log.createdAt,
+        details: detailsText  // ✅ Now a string, not an object!
+      };
+    });
+
+    console.log(`✅ Returning ${formattedLogs.length} activity logs`);
+    
+    res.json({ logs: formattedLogs });
+    return;
+  } catch (error) {
+    console.error('❌ Get activity logs error:', error);
     res.status(500).json({ message: 'Server error' });
+    return;
   }
 };

@@ -1,120 +1,13 @@
+// backend/src/controllers/dashboard.controller.ts
+// ✅ FIXED: Correct response format for frontend + removed unused types
+
 import { Request, Response } from 'express';
 import User from '../models/User';
 import EarlyDepartureRequest from '../models/EarlyDepartureRequest';
 
 /* ============================
-   TYPES
-============================ */
-type UrgencyLevel = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
-
-/* ============================
-   ADMIN DASHBOARD
-============================ */
-export const getAdminDashboard = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  try {
-    if (!req.user || req.user.role !== 'ADMIN') {
-      res.status(403).json({ message: 'Only admins can access this dashboard' });
-      return;
-    }
-
-    const users = await User.find().lean();
-    const requests = await EarlyDepartureRequest.find().lean();
-
-    const faculty = users.filter(u => u.role === 'FACULTY');
-    const hods = users.filter(u => u.role === 'HOD');
-    const admins = users.filter(u => u.role === 'ADMIN');
-
-    /* ================= OVERALL STATS ================= */
-    const overallStats = {
-      totalUsers: users.length,
-      totalFaculty: faculty.length,
-      totalHODs: hods.length,
-      totalAdmins: admins.length,
-      totalRequests: requests.length,
-      pendingRequests: requests.filter(r => r.status === 'PENDING').length,
-      approvedRequests: requests.filter(r => r.status === 'APPROVED').length,
-      rejectedRequests: requests.filter(r => r.status === 'REJECTED').length,
-      moreInfoNeeded: requests.filter(
-        r => r.status === 'MORE_INFO_NEEDED'
-      ).length,
-    };
-
-    /* ================= DEPARTMENT STATS ================= */
-    const departments = [...new Set(users.map(u => u.department))];
-
-    const departmentStats = departments.map(dept => {
-      const deptUsers = users.filter(u => u.department === dept);
-      const deptFaculty = deptUsers.filter(u => u.role === 'FACULTY');
-      const hod = deptUsers.find(u => u.role === 'HOD');
-
-      const deptRequests = requests.filter(r =>
-        deptFaculty.some(f =>
-          f._id.toString() === r.facultyId.toString()
-        )
-      );
-
-      const approved = deptRequests.filter(
-        r => r.status === 'APPROVED'
-      ).length;
-
-      return {
-        department: dept,
-        hodName: hod ? `${hod.firstName} ${hod.lastName}` : 'N/A',
-        hodEmail: hod?.email || 'N/A',
-        totalFaculty: deptFaculty.length,
-        totalRequests: deptRequests.length,
-        pendingRequests: deptRequests.filter(
-          r => r.status === 'PENDING'
-        ).length,
-        approvedRequests: approved,
-        rejectedRequests: deptRequests.filter(
-          r => r.status === 'REJECTED'
-        ).length,
-        approvalRate:
-          deptRequests.length > 0
-            ? ((approved / deptRequests.length) * 100).toFixed(1)
-            : '0',
-      };
-    });
-
-    /* ================= URGENCY BREAKDOWN ================= */
-    const urgencyLevels: UrgencyLevel[] = [
-      'CRITICAL',
-      'HIGH',
-      'MEDIUM',
-      'LOW',
-    ];
-
-    const urgencyBreakdown = urgencyLevels.map(level => ({
-      urgency: level,
-      count: requests.filter(
-        r => r.urgencyLevel === level
-      ).length,
-    }));
-
-    /* ================= SAFE DEFAULTS ================= */
-    const monthlyTrend: any[] = [];
-    const topFaculty: any[] = [];
-
-    res.json({
-      overallStats,
-      departmentStats,
-      urgencyBreakdown,
-      monthlyTrend,
-      topFaculty,
-      avgApprovalTimeHours: 0,
-    });
-  } catch (error) {
-    console.error('Get admin dashboard error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-/* ============================
    HOD DASHBOARD
+   ✅ FIXED: Flat response format
 ============================ */
 export const getHODDashboard = async (
   req: Request,
@@ -147,45 +40,75 @@ export const getHODDashboard = async (
         'facultyId',
         'firstName lastName email employeeId phoneNumber department'
       )
+      .populate('approvedBy', 'firstName lastName role')
       .sort({ submittedAt: -1 })
       .lean();
 
-    const stats = {
-      pending: requests.filter(r => r.status === 'PENDING').length,
-      approved: requests.filter(r => r.status === 'APPROVED').length,
-      rejected: requests.filter(r => r.status === 'REJECTED').length,
-      moreInfoNeeded: requests.filter(
-        r => r.status === 'MORE_INFO_NEEDED'
-      ).length,
-      total: requests.length,
+    // Calculate statistics
+    const totalRequests = requests.length;
+    const pendingRequests = requests.filter(r => r.status === 'PENDING').length;
+    const approvedRequests = requests.filter(r => r.status === 'APPROVED').length;
+    const rejectedRequests = requests.filter(r => r.status === 'REJECTED').length;
+    const moreInfoNeeded = requests.filter(r => r.status === 'MORE_INFO_NEEDED').length;
+
+    // Urgency breakdown
+    const urgencyBreakdown = {
+      CRITICAL: requests.filter(r => r.urgencyLevel === 'CRITICAL').length,
+      HIGH: requests.filter(r => r.urgencyLevel === 'HIGH').length,
+      MEDIUM: requests.filter(r => r.urgencyLevel === 'MEDIUM').length,
+      LOW: requests.filter(r => r.urgencyLevel === 'LOW').length,
     };
 
-   res.json({
-  statistics: {
-    pending: stats.pending,
-    approved: stats.approved,
-    rejected: stats.rejected,
-    total: stats.total,
-  },
+    // Status breakdown
+    const statusBreakdown = {
+      PENDING: pendingRequests,
+      APPROVED: approvedRequests,
+      REJECTED: rejectedRequests,
+      MORE_INFO_NEEDED: moreInfoNeeded,
+    };
 
-  pendingRequests: requests.filter(
-    r => r.status === 'PENDING'
-  ),
+    // Transform requests for frontend
+    const transformedRequests = requests.map(r => ({
+      id: r._id.toString(),
+      _id: r._id.toString(),
+      faculty: r.facultyId,
+      leaveType: r.leaveType,
+      departureDate: r.departureDate,
+      departureTime: r.departureTime,
+      expectedReturnTime: r.expectedReturnTime,
+      reason: r.reason,
+      destination: r.destination,
+      urgencyLevel: r.urgencyLevel,
+      status: r.status,
+      hodComments: r.hodComments,
+      rejectionReason: r.rejectionReason,
+      exitPassNumber: r.exitPassNumber,
+      qrCode: r.qrCode,
+      attachments: r.attachments,
+      submittedAt: r.submittedAt,
+      approvedAt: r.approvedAt,
+      rejectedAt: r.rejectedAt,
+      approvedBy: r.approvedBy,
+      approvedByRole: r.approvedByRole,
+    }));
 
-  urgencyBreakdown: [
-    { urgency: 'CRITICAL', count: requests.filter(r => r.urgencyLevel === 'CRITICAL').length },
-    { urgency: 'HIGH', count: requests.filter(r => r.urgencyLevel === 'HIGH').length },
-    { urgency: 'MEDIUM', count: requests.filter(r => r.urgencyLevel === 'MEDIUM').length },
-    { urgency: 'LOW', count: requests.filter(r => r.urgencyLevel === 'LOW').length },
-  ],
-
-  department: hod.department,
-  facultyCount: facultyIds.length,
-});
-
+    // ✅ FIXED: Return flat structure matching DashboardStats interface
+    res.json({
+      totalRequests,
+      pendingRequests,
+      approvedRequests,
+      rejectedRequests,
+      recentRequests: transformedRequests.slice(0, 20), // Recent 20
+      urgencyBreakdown,
+      statusBreakdown,
+      department: hod.department,
+      facultyCount: facultyIds.length,
+    });
+    return;
   } catch (error) {
     console.error('Get HOD dashboard error:', error);
     res.status(500).json({ message: 'Server error' });
+    return;
   }
 };
 
@@ -205,20 +128,51 @@ export const getFacultyDashboard = async (
     const requests = await EarlyDepartureRequest.find({
       facultyId: req.user.userId,
     })
+      .populate('approvedBy', 'firstName lastName role')
       .sort({ submittedAt: -1 })
       .lean();
 
-    const statistics = {
-      pending: requests.filter(r => r.status === 'PENDING').length,
-      approved: requests.filter(r => r.status === 'APPROVED').length,
-      rejected: requests.filter(r => r.status === 'REJECTED').length,
-      total: requests.length,
-    };
+    const totalRequests = requests.length;
+    const pendingRequests = requests.filter(r => r.status === 'PENDING').length;
+    const approvedRequests = requests.filter(r => r.status === 'APPROVED').length;
+    const rejectedRequests = requests.filter(r => r.status === 'REJECTED').length;
 
-    res.json({ statistics, requests });
+    // Transform requests
+    const transformedRequests = requests.map(r => ({
+      id: r._id.toString(),
+      _id: r._id.toString(),
+      leaveType: r.leaveType,
+      departureDate: r.departureDate,
+      departureTime: r.departureTime,
+      expectedReturnTime: r.expectedReturnTime,
+      reason: r.reason,
+      destination: r.destination,
+      urgencyLevel: r.urgencyLevel,
+      status: r.status,
+      hodComments: r.hodComments,
+      rejectionReason: r.rejectionReason,
+      exitPassNumber: r.exitPassNumber,
+      qrCode: r.qrCode,
+      attachments: r.attachments,
+      submittedAt: r.submittedAt,
+      approvedAt: r.approvedAt,
+      rejectedAt: r.rejectedAt,
+      approvedBy: r.approvedBy,
+      approvedByRole: r.approvedByRole,
+    }));
+
+    res.json({ 
+      totalRequests,
+      pendingRequests,
+      approvedRequests,
+      rejectedRequests,
+      recentRequests: transformedRequests,
+    });
+    return;
   } catch (error) {
     console.error('Get faculty dashboard error:', error);
     res.status(500).json({ message: 'Server error' });
+    return;
   }
 };
 
@@ -261,8 +215,10 @@ export const getDepartmentStats = async (
       rejectedRequests: requests.filter(r => r.status === 'REJECTED').length,
       pendingRequests: requests.filter(r => r.status === 'PENDING').length,
     });
+    return;
   } catch (error) {
     console.error('Get department stats error:', error);
     res.status(500).json({ message: 'Server error' });
+    return;
   }
 };

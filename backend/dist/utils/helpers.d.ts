@@ -1,0 +1,9 @@
+export declare const generateExitPassNumber: () => string;
+export declare const formatDate: (date: Date) => string;
+export declare const getHoursDifference: (start: Date, end: Date) => number;
+export declare const sanitizeFilename: (filename: string) => string;
+export declare const generateRandomString: (length?: number) => string;
+export declare const isDateInFuture: (date: Date) => boolean;
+export declare const getUrgencyColor: (urgency: string) => string;
+export declare const getStatusColor: (status: string) => string;
+//# sourceMappingURL=helpers.d.ts.map

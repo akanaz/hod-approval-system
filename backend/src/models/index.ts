@@ -1,7 +1,11 @@
-// backend/src/models/Notification.ts
+// backend/src/models/index.ts
+// ✅ FIXED: Proper exports for all models
 
 import mongoose, { Schema, Document } from 'mongoose';
 
+/* ===============================================
+   NOTIFICATION MODEL
+=============================================== */
 export interface INotification extends Document {
   userId: mongoose.Types.ObjectId;
   requestId?: mongoose.Types.ObjectId;
@@ -48,10 +52,12 @@ const notificationSchema = new Schema<INotification>(
 notificationSchema.index({ userId: 1, isRead: 1 });
 notificationSchema.index({ createdAt: -1 });
 
-export default mongoose.model<INotification>('Notification', notificationSchema);
+export const Notification = mongoose.model<INotification>('Notification', notificationSchema);
 
-// backend/src/models/AuditLog.ts
-
+/* ===============================================
+   AUDIT LOG MODEL
+   ✅ FIXED: Now exported as both default AND named export
+=============================================== */
 export interface IAuditLog extends Document {
   requestId: mongoose.Types.ObjectId;
   userId: mongoose.Types.ObjectId;
@@ -77,6 +83,18 @@ const auditLogSchema = new Schema<IAuditLog>(
     action: {
       type: String,
       required: true,
+      enum: [
+        'created',
+        'edited',
+        'cancelled',
+        'approved',
+        'rejected',
+        'requested_more_info',
+        'delegation_granted',
+        'delegation_revoked',
+        'delegation_extended',
+        'comment_added'
+      ],
     },
     details: {
       type: Schema.Types.Mixed,
@@ -95,11 +113,16 @@ const auditLogSchema = new Schema<IAuditLog>(
 
 auditLogSchema.index({ requestId: 1, createdAt: -1 });
 auditLogSchema.index({ userId: 1 });
+auditLogSchema.index({ action: 1 });
+auditLogSchema.index({ createdAt: -1 });
 
+// ✅ CRITICAL: Export as BOTH named and default
 export const AuditLog = mongoose.model<IAuditLog>('AuditLog', auditLogSchema);
+export default AuditLog; // ✅ Also export as default for consistency
 
-// backend/src/models/Comment.ts
-
+/* ===============================================
+   COMMENT MODEL
+=============================================== */
 export interface IComment extends Document {
   requestId: mongoose.Types.ObjectId;
   userId: mongoose.Types.ObjectId;
@@ -139,8 +162,9 @@ commentSchema.index({ requestId: 1, createdAt: -1 });
 
 export const Comment = mongoose.model<IComment>('Comment', commentSchema);
 
-// backend/src/models/Document.ts
-
+/* ===============================================
+   DOCUMENT MODEL
+=============================================== */
 export interface IDocument extends Document {
   requestId: mongoose.Types.ObjectId;
   fileName: string;
@@ -189,8 +213,9 @@ documentSchema.index({ requestId: 1 });
 
 export const DocumentModel = mongoose.model<IDocument>('Document', documentSchema);
 
-// backend/src/models/DepartmentStats.ts
-
+/* ===============================================
+   DEPARTMENT STATS MODEL
+=============================================== */
 export interface IDepartmentStats extends Document {
   department: string;
   totalFaculty: number;
