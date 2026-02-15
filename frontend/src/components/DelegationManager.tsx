@@ -35,7 +35,8 @@ interface Delegation {
 }
 
 const DelegationManager: React.FC = () => {
-  const { user } = useAuth();
+  useAuth(); // or remove completely if unused
+
   const queryClient = useQueryClient();
 
   const [selectedFaculty, setSelectedFaculty] = useState('');
@@ -312,7 +313,7 @@ const DelegationManager: React.FC = () => {
         ) : (
           <div className="space-y-3">
             {delegations.map((delegation: Delegation) => {
-  const facultyId = delegation.facultyId._id || delegation.facultyId.id;
+  const facultyId = delegation.facultyId._id ?? delegation.facultyId.id ?? '';
   const isActive = new Date(delegation.endDate) > new Date();
   
   return (

@@ -74,7 +74,7 @@ const DEPARTMENTS = [
 ];
 
 export default function AdminDashboard() {
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const [data, setData] = useState<AdminDashboardData | null>(null);
   const [users, setUsers] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,7 +85,7 @@ export default function AdminDashboard() {
   const [userTab, setUserTab] = useState<'FACULTY' | 'HOD'>('FACULTY');
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [activeView, setActiveView] = useState<'overview' | 'analytics' | 'logs'>('overview');
+  
 
   // Activity Logs
   const [showAnalytics, setShowAnalytics] = useState(false);
