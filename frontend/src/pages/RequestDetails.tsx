@@ -86,7 +86,7 @@ export default function RequestDetails() {
   const [request, setRequest] = useState<RequestData | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [comment, setComment] = useState('');
+  const [_comment, _setComment] = useState('');
   const [hodComments, setHodComments] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);

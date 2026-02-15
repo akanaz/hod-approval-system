@@ -43,7 +43,7 @@ type UrgencyCount = {
 };
 
 export default function HODDashboard() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [allRequests, setAllRequests] = useState<RequestItem[]>([]);

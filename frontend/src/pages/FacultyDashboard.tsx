@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -85,10 +85,11 @@ const hasDelegatedRights = (user: any) => {
   return endDate > now && (user.delegationPermissions?.length || 0) > 0;
 };
 
-const canEditRequest = (request: RequestItem, userId: string) => {
+const canEditRequest = (request: RequestItem) => {
   if (request.status !== 'PENDING') return false;
   return true;
 };
+
 
 
 
@@ -369,7 +370,8 @@ export default function FacultyDashboard() {
                 {requests.map(req => {
                   const reqId = req.id || req._id;
                   const isPending = req.status === 'PENDING';
-                  const canEdit = canEditRequest(req, user?.id || '');
+                  const canEdit = canEditRequest(req);
+
 
                   return (
                     <div
