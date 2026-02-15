@@ -159,11 +159,6 @@ const DelegationManager: React.FC = () => {
     });
   };
 
-  const handleRevoke = (delegationId: string) => {
-    if (window.confirm('Are you sure you want to revoke this delegation?')) {
-      revokeDelegation.mutate(delegationId);
-    }
-  };
 
   return (
     <div className="space-y-6">

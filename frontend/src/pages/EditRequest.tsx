@@ -6,7 +6,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { requestsApi, fileApi } from '../services/api';
 import toast from 'react-hot-toast';
-import { Calendar, Clock, FileText, MapPin, AlertCircle, Upload, X, ArrowLeft } from 'lucide-react';
+import { Calendar, Clock, X, ArrowLeft } from 'lucide-react';
 import type { EditRequestDTO, LeaveType, FileAttachment } from '../types';
 import { formatFileSize, getFileIcon } from '../types';
 

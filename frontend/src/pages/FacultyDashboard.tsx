@@ -97,8 +97,9 @@ const canEditRequest = (request: RequestItem, userId: string) => {
 
 export default function FacultyDashboard() {
   const { logout, user } = useAuth();
+  if (!user) return null;
+
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState<'my-requests' | 'department-requests'>('my-requests');
 
@@ -191,7 +192,7 @@ export default function FacultyDashboard() {
       .get('/dashboard/faculty')
       .then(res => {
         console.log('✅ Dashboard API response:', res.data);
-        
+
         // ✅ FIXED: Handle flat response structure from backend
         setStats({
           pending: res.data.pendingRequests || 0,
@@ -296,7 +297,9 @@ export default function FacultyDashboard() {
               <p className="font-semibold text-blue-900">Delegated HOD Rights Active</p>
               <p className="text-sm text-blue-700">
                 You have been granted approval rights until{' '}
-                {new Date(user.delegationEndDate!).toLocaleDateString('en-IN')}
+                {user?.delegationEndDate &&
+                  new Date(user.delegationEndDate).toLocaleDateString('en-IN')}
+
               </p>
             </div>
           </div>
