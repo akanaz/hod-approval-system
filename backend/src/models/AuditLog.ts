@@ -6,7 +6,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface IAuditLog extends Document {
   requestId: mongoose.Types.ObjectId;
   userId: mongoose.Types.ObjectId;
-  action: string;
+  action: 'created' | 'edited' | 'cancelled' | 'approved' | 'rejected' | 'requested_more_info' | 'delegation_granted' | 'delegation_revoked' | 'delegation_extended' | 'comment_added' | 'exit_logged';
   details?: any;
   ipAddress?: string;
   userAgent?: string;
@@ -39,7 +39,8 @@ const auditLogSchema = new Schema<IAuditLog>(
         'delegation_granted',
         'delegation_revoked',
         'delegation_extended',
-        'comment_added'
+        'comment_added',
+        'exit_logged'
       ],
     },
     details: {

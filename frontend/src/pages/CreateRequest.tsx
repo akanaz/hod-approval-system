@@ -62,7 +62,9 @@ const CreateRequest: React.FC = () => {
     departureDate: '',
     departureTime: '',
     expectedReturnTime: '',
+    reasonCategory: '' as '' | 'MEDICAL' | 'FAMILY' | 'PERSONAL' | 'LEGAL' | 'EDUCATIONAL' | 'VEHICLE' | 'CHILDCARE' | 'OTHER',
     reason: '',
+    scheduledCommitments: '',
     destination: '',
     urgencyLevel: 'MEDIUM' as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL',
     currentWorkload: '',
@@ -195,8 +197,8 @@ const CreateRequest: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.departureDate || !formData.reason) {
-      toast.error('Please fill in all required fields');
+    if (!formData.departureDate || !formData.reason || !formData.reasonCategory) {
+      toast.error('Please fill in all required fields including reason category');
       return;
     }
 
@@ -300,17 +302,56 @@ const CreateRequest: React.FC = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <FileText className="inline w-4 h-4 mr-1" />
-                Reason <span className="text-red-500">*</span>
+                Reason Category <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="reasonCategory"
+                value={formData.reasonCategory}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              >
+                <option value="">-- Select a category --</option>
+                <option value="MEDICAL">🏥 Medical / Health Appointment</option>
+                <option value="FAMILY">👨‍👩‍👧 Family Emergency</option>
+                <option value="PERSONAL">🏠 Personal Work / Errands</option>
+                <option value="LEGAL">⚖️ Legal Consultation / Proceedings</option>
+                <option value="EDUCATIONAL">🎓 Educational / Training Program</option>
+                <option value="VEHICLE">🚗 Vehicle / Transport Emergency</option>
+                <option value="CHILDCARE">👶 Child / Elderly Care</option>
+                <option value="OTHER">📝 Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <FileText className="inline w-4 h-4 mr-1" />
+                Detailed Reason <span className="text-red-500">*</span>
               </label>
               <textarea
                 name="reason"
                 value={formData.reason}
                 onChange={handleInputChange}
-                rows={4}
-                placeholder="Please provide a detailed reason for your early departure request"
+                rows={3}
+                placeholder="Please provide a detailed description of your reason for early departure"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                 required
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                📅 Scheduled Commitments on Departure Date
+              </label>
+              <textarea
+                name="scheduledCommitments"
+                value={formData.scheduledCommitments}
+                onChange={handleInputChange}
+                rows={2}
+                placeholder="e.g., 10:00 AM - Lab session (3rd year CS), 2:00 PM - Tutorial class. Leave blank if none."
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              />
+              <p className="text-xs text-gray-500 mt-1">List any classes, labs, or meetings you have scheduled on this day.</p>
             </div>
 
             <div>

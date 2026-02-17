@@ -6,9 +6,6 @@
     "module": "ESNext",
     "skipLibCheck": true,
 
-    /* ADD THIS LINE */
-    "types": ["vite/client"],
-
     /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,

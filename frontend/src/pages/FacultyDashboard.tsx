@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -85,11 +85,10 @@ const hasDelegatedRights = (user: any) => {
   return endDate > now && (user.delegationPermissions?.length || 0) > 0;
 };
 
-const canEditRequest = (request: RequestItem) => {
+const canEditRequest = (request: RequestItem, userId: string) => {
   if (request.status !== 'PENDING') return false;
   return true;
 };
-
 
 
 
@@ -98,9 +97,8 @@ const canEditRequest = (request: RequestItem) => {
 
 export default function FacultyDashboard() {
   const { logout, user } = useAuth();
-  if (!user) return null;
-
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState<'my-requests' | 'department-requests'>('my-requests');
 
@@ -193,7 +191,7 @@ export default function FacultyDashboard() {
       .get('/dashboard/faculty')
       .then(res => {
         console.log('✅ Dashboard API response:', res.data);
-
+        
         // ✅ FIXED: Handle flat response structure from backend
         setStats({
           pending: res.data.pendingRequests || 0,
@@ -298,9 +296,7 @@ export default function FacultyDashboard() {
               <p className="font-semibold text-blue-900">Delegated HOD Rights Active</p>
               <p className="text-sm text-blue-700">
                 You have been granted approval rights until{' '}
-                {user?.delegationEndDate &&
-                  new Date(user.delegationEndDate).toLocaleDateString('en-IN')}
-
+                {new Date(user.delegationEndDate!).toLocaleDateString('en-IN')}
               </p>
             </div>
           </div>
@@ -370,8 +366,7 @@ export default function FacultyDashboard() {
                 {requests.map(req => {
                   const reqId = req.id || req._id;
                   const isPending = req.status === 'PENDING';
-                  const canEdit = canEditRequest(req);
-
+                  const canEdit = canEditRequest(req, user?.id || '');
 
                   return (
                     <div

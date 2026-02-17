@@ -1,7 +1,7 @@
 // frontend/src/types/index.ts
 // ✅ FIXED: FileAttachment type consistency
 
-export type UserRole = 'FACULTY' | 'HOD' | 'ADMIN' | 'DEAN';
+export type UserRole = 'FACULTY' | 'HOD' | 'ADMIN' | 'DEAN' | 'SECURITY';
 
 export type RequestStatus = 
   | 'PENDING' 
@@ -41,7 +41,9 @@ export interface EarlyDepartureRequest {
   departureDate: string;
   departureTime?: string;
   expectedReturnTime?: string;
+  reasonCategory?: ReasonCategory;
   reason: string;
+  scheduledCommitments?: string;
   destination?: string;
   urgencyLevel: UrgencyLevel;
   currentWorkload?: string;
@@ -73,12 +75,16 @@ export interface FileAttachment {
   path?: string; // ✅ Added for backend compatibility
 }
 
+export type ReasonCategory = 'MEDICAL' | 'FAMILY' | 'PERSONAL' | 'LEGAL' | 'EDUCATIONAL' | 'VEHICLE' | 'CHILDCARE' | 'OTHER';
+
 export interface CreateRequestDTO {
   leaveType: LeaveType;
   departureDate: string;
   departureTime?: string;
   expectedReturnTime?: string;
+  reasonCategory?: ReasonCategory;
   reason: string;
+  scheduledCommitments?: string;
   destination?: string;
   urgencyLevel: UrgencyLevel;
   currentWorkload?: string;
@@ -91,7 +97,9 @@ export interface EditRequestDTO {
   departureDate?: string;
   departureTime?: string;
   expectedReturnTime?: string;
+  reasonCategory?: ReasonCategory | '';
   reason?: string;
+  scheduledCommitments?: string;
   destination?: string;
   urgencyLevel?: UrgencyLevel;
   currentWorkload?: string;
@@ -189,6 +197,7 @@ export const isHOD = (user: User | null): boolean => user?.role === 'HOD';
 export const isDean = (user: User | null): boolean => user?.role === 'DEAN';
 export const isFaculty = (user: User | null): boolean => user?.role === 'FACULTY';
 export const isAdmin = (user: User | null): boolean => user?.role === 'ADMIN';
+export const isSecurityPersonnel = (user: User | null): boolean => user?.role === 'SECURITY';
 
 export const hasDelegatedRights = (user: User | null): boolean => {
   if (!user || !user.delegationEndDate) return false;

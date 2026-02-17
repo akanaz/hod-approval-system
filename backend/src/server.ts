@@ -20,6 +20,8 @@ import adminRoutes from './routes/admin.routes';
 import uploadRoutes from './routes/upload.routes';
 import delegationRoutes from './routes/delegation.routes'; // ✅ NEW
 import deanRoutes from './routes/dean.routes'; // ✅ NEW
+import securityRoutes from './routes/security.routes'; // Module 4: Gate Security
+import publicRoutes from './routes/public.routes';     // Module 3: Public stats
 
 // Middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -87,6 +89,8 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/files', uploadRoutes);
 app.use('/api/hod', delegationRoutes);           // ✅ FIX: Register HOD delegation routes
 app.use('/api/dean', deanRoutes);
+app.use('/api/security', securityRoutes);        // Module 4: Gate Security Integration
+app.use('/api/public', publicRoutes);            // Module 3: Public aggregate stats (no auth)
 
 // Error handling
 app.use(notFound);

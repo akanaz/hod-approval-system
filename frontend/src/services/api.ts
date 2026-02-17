@@ -40,9 +40,15 @@ api.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      // Only force-redirect if user was already authenticated (has a stored token).
+      // During login itself there is no stored token, so let the error propagate
+      // to the Login component's catch block so it can show the toast.
+      const hasToken = localStorage.getItem('token');
+      if (hasToken) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }
@@ -193,6 +199,21 @@ export const adminApi = {
   createUser: async (userData: any): Promise<User> => {
     const response = await api.post('/admin/users', userData);
     return response.data.user;
+  },
+};
+
+export const securityApi = {
+  verifyExitPass: async (exitPassNumber: string) => {
+    const response = await api.get(`/security/verify/${encodeURIComponent(exitPassNumber)}`);
+    return response.data;
+  },
+  logExit: async (requestId: string) => {
+    const response = await api.post(`/security/log-exit/${requestId}`);
+    return response.data;
+  },
+  getTodayApproved: async () => {
+    const response = await api.get('/security/today-approved');
+    return response.data;
   },
 };
 

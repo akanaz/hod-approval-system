@@ -11,7 +11,7 @@ export interface IUser extends Document {
   lastName: string;
   employeeId: string;
   department: string;
-  role: 'FACULTY' | 'HOD' | 'DEAN' | 'ADMIN'; // ✅ Added DEAN
+  role: 'FACULTY' | 'HOD' | 'DEAN' | 'ADMIN' | 'SECURITY';
   hodId?: mongoose.Types.ObjectId; // Faculty/HOD mapped to their HOD/DEAN
   phoneNumber?: string;
   isActive: boolean;
@@ -68,7 +68,7 @@ const userSchema = new Schema<IUser>(
     },
     role: {
       type: String,
-      enum: ['FACULTY', 'HOD', 'DEAN', 'ADMIN'], // ✅ Added DEAN
+      enum: ['FACULTY', 'HOD', 'DEAN', 'ADMIN', 'SECURITY'],
       default: 'FACULTY',
     },
     hodId: {

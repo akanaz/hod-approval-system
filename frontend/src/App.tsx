@@ -13,6 +13,7 @@ import FacultyDashboard from './pages/FacultyDashboard';
 import CreateRequest from './pages/CreateRequest';
 import EditRequest from './pages/EditRequest';
 import DeanDashboard from './pages/DeanDashboard';
+import SecurityDashboard from './pages/SecurityDashboard';
 import RequestDetails from './pages/RequestDetails';
 import Profile from './pages/Profile';
 import NotFound from './components/NotFound';
@@ -74,6 +75,10 @@ function RootRedirect() {
     return <Navigate to="/hod/dashboard" replace />;
   }
 
+  if (user.role === 'SECURITY') {
+    return <Navigate to="/security/dashboard" replace />;
+  }
+
   return <Navigate to="/faculty/dashboard" replace />;
 }
 
@@ -126,6 +131,16 @@ export default function App() {
             element={
               <ProtectedRoute roles={['FACULTY', 'ADMIN']}>
                 <FacultyDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ================= SECURITY ================= */}
+          <Route
+            path="/security/dashboard"
+            element={
+              <ProtectedRoute roles={['SECURITY', 'ADMIN']}>
+                <SecurityDashboard />
               </ProtectedRoute>
             }
           />

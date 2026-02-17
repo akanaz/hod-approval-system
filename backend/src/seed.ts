@@ -108,6 +108,32 @@ async function seed() {
 
     console.log('✅ Dean created');
 
+    /* ================= CREATE SECURITY PERSONNEL ================= */
+
+    await User.create({
+      email: 'security1@nmit.edu',
+      password: 'security123',
+      firstName: 'Gate 1',
+      lastName: 'Security',
+      employeeId: 'SEC001',
+      department: 'Gate Security',
+      role: 'SECURITY',
+      phoneNumber: '+91-9876543212',
+    });
+
+    await User.create({
+      email: 'security2@nmit.edu',
+      password: 'security123',
+      firstName: 'Gate 2',
+      lastName: 'Security',
+      employeeId: 'SEC002',
+      department: 'Gate Security',
+      role: 'SECURITY',
+      phoneNumber: '+91-9876543213',
+    });
+
+    console.log('✅ Security personnel created (2)');
+
     /* ================= CREATE HODs (6 departments) ================= */
 
     console.log('👔 Creating HODs...');
@@ -329,6 +355,14 @@ async function seed() {
     console.log('  Email: dean@nmit.edu');
     console.log('  Password: dean123');
     console.log('  Role: Academic Dean (Approves HOD requests)');
+
+    console.log('\n🔐 SECURITY PERSONNEL:');
+    console.log('  Email: security1@nmit.edu');
+    console.log('  Password: security123');
+    console.log('  Role: Gate Security (Gate 1)');
+    console.log('  Email: security2@nmit.edu');
+    console.log('  Password: security123');
+    console.log('  Role: Gate Security (Gate 2)');
 
     console.log('\n👔 HODs (6 seeded departments):');
     hodDepartments.forEach((dept, idx) => {

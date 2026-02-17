@@ -93,7 +93,8 @@ const auditLogSchema = new Schema<IAuditLog>(
         'delegation_granted',
         'delegation_revoked',
         'delegation_extended',
-        'comment_added'
+        'comment_added',
+        'exit_logged'
       ],
     },
     details: {

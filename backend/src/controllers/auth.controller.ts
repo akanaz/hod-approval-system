@@ -23,7 +23,7 @@ const registerSchema = z.object({
   lastName: z.string().min(1),
   employeeId: z.string().min(1),
   department: z.string().min(1),
-  role: z.enum(['FACULTY', 'HOD', 'DEAN', 'ADMIN']).optional(), // ✅ Added DEAN
+  role: z.enum(['FACULTY', 'HOD', 'DEAN', 'ADMIN', 'SECURITY']).optional(),
   phoneNumber: z.string().optional()
 });
 

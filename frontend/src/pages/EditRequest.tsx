@@ -6,7 +6,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { requestsApi, fileApi } from '../services/api';
 import toast from 'react-hot-toast';
-import { Calendar, Clock, X, ArrowLeft } from 'lucide-react';
+import { Calendar, Clock, FileText, MapPin, AlertCircle, Upload, X, ArrowLeft } from 'lucide-react';
 import type { EditRequestDTO, LeaveType, FileAttachment } from '../types';
 import { formatFileSize, getFileIcon } from '../types';
 
@@ -37,7 +37,9 @@ const EditRequest: React.FC = () => {
         departureDate: request.departureDate.split('T')[0],
         departureTime: request.departureTime || '',
         expectedReturnTime: request.expectedReturnTime || '',
+        reasonCategory: (request as any).reasonCategory || '',
         reason: request.reason,
+        scheduledCommitments: (request as any).scheduledCommitments || '',
         destination: request.destination || '',
         urgencyLevel: request.urgencyLevel,
         currentWorkload: request.currentWorkload || '',
@@ -246,16 +248,53 @@ const EditRequest: React.FC = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Reason <span className="text-red-500">*</span>
+                Reason Category <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="reasonCategory"
+                value={formData.reasonCategory || ''}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">-- Select a category --</option>
+                <option value="MEDICAL">🏥 Medical / Health Appointment</option>
+                <option value="FAMILY">👨‍👩‍👧 Family Emergency</option>
+                <option value="PERSONAL">🏠 Personal Work / Errands</option>
+                <option value="LEGAL">⚖️ Legal Consultation / Proceedings</option>
+                <option value="EDUCATIONAL">🎓 Educational / Training Program</option>
+                <option value="VEHICLE">🚗 Vehicle / Transport Emergency</option>
+                <option value="CHILDCARE">👶 Child / Elderly Care</option>
+                <option value="OTHER">📝 Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Detailed Reason <span className="text-red-500">*</span>
               </label>
               <textarea
                 name="reason"
                 value={formData.reason}
                 onChange={handleInputChange}
-                rows={4}
+                rows={3}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                 required
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                📅 Scheduled Commitments on Departure Date
+              </label>
+              <textarea
+                name="scheduledCommitments"
+                value={formData.scheduledCommitments || ''}
+                onChange={handleInputChange}
+                rows={2}
+                placeholder="e.g., 10:00 AM - Lab session (3rd year CS), 2:00 PM - Tutorial class."
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg resize-none"
+              />
+              <p className="text-xs text-gray-500 mt-1">List any classes, labs, or meetings scheduled on this day.</p>
             </div>
 
             <div>

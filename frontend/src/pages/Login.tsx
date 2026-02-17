@@ -1,17 +1,28 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+
+interface PublicStats {
+  month: string;
+  thisMonth: { total: number; approved: number; pending: number; approvalRate: number };
+  institution: { totalRequests: number; activeFaculty: number; departments: number };
+}
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [stats, setStats] = useState<PublicStats | null>(null);
 
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    api.get('/public/stats').then(res => setStats(res.data)).catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,6 +51,8 @@ export default function Login() {
           navigate('/hod/dashboard');
         } else if (user.role === 'DEAN') {
           navigate('/dean/dashboard');
+        } else if (user.role === 'SECURITY') {
+          navigate('/security/dashboard');
         } else {
           navigate('/faculty/dashboard');
         }
@@ -213,8 +226,31 @@ export default function Login() {
           </div>
         </div>
 
+        {/* Public Aggregate Stats — Module 3 */}
+        {stats && (
+          <div className="mt-6 bg-white/70 border border-slate-200 rounded-2xl p-4 backdrop-blur animate-fade-in">
+            <p className="text-xs font-semibold text-slate-500 text-center mb-3 uppercase tracking-wider">
+              System Overview · {stats.month}
+            </p>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-blue-600">{stats.thisMonth.total}</p>
+                <p className="text-xs text-slate-500 mt-0.5">Requests this month</p>
+              </div>
+              <div className="text-center border-x border-slate-200">
+                <p className="text-2xl font-bold text-emerald-600">{stats.thisMonth.approvalRate}%</p>
+                <p className="text-xs text-slate-500 mt-0.5">Approval rate</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-indigo-600">{stats.institution.departments}</p>
+                <p className="text-xs text-slate-500 mt-0.5">Departments</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Footer Info */}
-        <div className="text-center mt-6 text-slate-600 text-sm">
+        <div className="text-center mt-4 text-slate-600 text-sm">
           <p className="flex items-center justify-center gap-2">
             <span>🔒</span>
             Secure access for faculty and administrators

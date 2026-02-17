@@ -39,7 +39,9 @@ type RequestData = {
   departureDate: string;
   departureTime: string;
   expectedReturnTime?: string;
+  reasonCategory?: string;
   reason: string;
+  scheduledCommitments?: string;
   destination?: string;
   urgencyLevel: string;
   status: string;
@@ -86,7 +88,7 @@ export default function RequestDetails() {
   const [request, setRequest] = useState<RequestData | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [_comment, _setComment] = useState('');
+  const [comment, setComment] = useState('');
   const [hodComments, setHodComments] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -214,12 +216,40 @@ export default function RequestDetails() {
             {request.destination && <InfoItem label="Destination" value={request.destination} />}
           </div>
 
+          {request.reasonCategory && (
+            <div className="mt-4">
+              <label className="text-sm font-semibold text-slate-600">Reason Category</label>
+              <div className="mt-1">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-blue-800 text-sm font-medium">
+                  {request.reasonCategory === 'MEDICAL' && '🏥'}
+                  {request.reasonCategory === 'FAMILY' && '👨‍👩‍👧'}
+                  {request.reasonCategory === 'PERSONAL' && '🏠'}
+                  {request.reasonCategory === 'LEGAL' && '⚖️'}
+                  {request.reasonCategory === 'EDUCATIONAL' && '🎓'}
+                  {request.reasonCategory === 'VEHICLE' && '🚗'}
+                  {request.reasonCategory === 'CHILDCARE' && '👶'}
+                  {request.reasonCategory === 'OTHER' && '📝'}
+                  {' '}{request.reasonCategory.charAt(0) + request.reasonCategory.slice(1).toLowerCase().replace('_', ' ')}
+                </span>
+              </div>
+            </div>
+          )}
+
           <div className="mt-4">
-            <label className="text-sm font-semibold text-slate-600">Reason</label>
+            <label className="text-sm font-semibold text-slate-600">Detailed Reason</label>
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mt-1 text-slate-800">
               {request.reason}
             </div>
           </div>
+
+          {request.scheduledCommitments && (
+            <div className="mt-4">
+              <label className="text-sm font-semibold text-slate-600">📅 Scheduled Commitments on Departure Date</label>
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mt-1 text-slate-800">
+                {request.scheduledCommitments}
+              </div>
+            </div>
+          )}
 
           {request.currentWorkload && (
             <div className="mt-4">

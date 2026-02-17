@@ -22,8 +22,10 @@ export interface IEarlyDepartureRequest extends Document {
   departureDate: Date;
   departureTime?: string; // ✅ CHANGED: Optional for full-day leaves
   expectedReturnTime?: string;
-  
+
+  reasonCategory?: 'MEDICAL' | 'FAMILY' | 'PERSONAL' | 'LEGAL' | 'EDUCATIONAL' | 'VEHICLE' | 'CHILDCARE' | 'OTHER';
   reason: string;
+  scheduledCommitments?: string;
   destination?: string;
   urgencyLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'MORE_INFO_NEEDED';
@@ -38,6 +40,7 @@ export interface IEarlyDepartureRequest extends Document {
   hodComments?: string;
   exitPassNumber?: string;
   qrCode?: string;
+  actualExitTime?: Date;
   currentWorkload?: any;
   coverageArrangement?: string;
   attachments?: IAttachment[];
@@ -76,10 +79,17 @@ const earlyDepartureRequestSchema = new Schema<IEarlyDepartureRequest>(
     expectedReturnTime: {
       type: String,
     },
+    reasonCategory: {
+      type: String,
+      enum: ['MEDICAL', 'FAMILY', 'PERSONAL', 'LEGAL', 'EDUCATIONAL', 'VEHICLE', 'CHILDCARE', 'OTHER'],
+    },
     reason: {
       type: String,
       required: true,
       minlength: 10,
+    },
+    scheduledCommitments: {
+      type: String,
     },
     destination: {
       type: String,
@@ -128,6 +138,9 @@ const earlyDepartureRequestSchema = new Schema<IEarlyDepartureRequest>(
     },
     qrCode: {
       type: String,
+    },
+    actualExitTime: {
+      type: Date,
     },
     currentWorkload: {
       type: Schema.Types.Mixed,

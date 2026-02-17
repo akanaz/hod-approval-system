@@ -24,11 +24,16 @@ export default function Layout() {
             { path: '/dean/dashboard', label: 'Dashboard', icon: '📊' },
             { path: '/profile', label: 'Profile', icon: '👤' },
           ]
-        : [
-            { path: '/faculty/dashboard', label: 'Dashboard', icon: '📊' },
-            { path: '/requests/new', label: 'New Request', icon: '➕' },
-            { path: '/profile', label: 'Profile', icon: '👤' },
-          ];
+        : user?.role === 'SECURITY'
+          ? [
+              { path: '/security/dashboard', label: 'Dashboard', icon: '🛡️' },
+              { path: '/profile', label: 'Profile', icon: '👤' },
+            ]
+          : [
+              { path: '/faculty/dashboard', label: 'Dashboard', icon: '📊' },
+              { path: '/requests/new', label: 'New Request', icon: '➕' },
+              { path: '/profile', label: 'Profile', icon: '👤' },
+            ];
 
 
   /* ================= CLICK OUTSIDE ================= */
