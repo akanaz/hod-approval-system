@@ -1,5 +1,6 @@
 // frontend/src/services/api.ts
 // ✅ COMPLETE VERSION with all new endpoints
+/// <reference types="vite/client" />
 
 import axios, { AxiosError } from 'axios';
 import type {

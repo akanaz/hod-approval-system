@@ -1,6 +1,7 @@
 // frontend/src/App.tsx
 // ✅ FIXED: Added React Router v7 future flags to prevent warnings
 
+import { type ReactElement } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
@@ -39,7 +40,7 @@ function ProtectedRoute({
   children,
   roles,
 }: {
-  children: JSX.Element;
+  children: ReactElement;
   roles?: string[];
 }) {
   const { user, loading } = useAuth();

@@ -5,7 +5,6 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import toast from 'react-hot-toast';
-import { useAuth } from '../context/AuthContext';
 
 interface Faculty {
   id: string;
@@ -35,7 +34,6 @@ interface Delegation {
 }
 
 const DelegationManager: React.FC = () => {
-  const { user } = useAuth();
   const queryClient = useQueryClient();
 
   const [selectedFaculty, setSelectedFaculty] = useState('');
@@ -158,11 +156,7 @@ const DelegationManager: React.FC = () => {
     });
   };
 
-  const handleRevoke = (delegationId: string) => {
-    if (window.confirm('Are you sure you want to revoke this delegation?')) {
-      revokeDelegation.mutate(delegationId);
-    }
-  };
+
 
   return (
     <div className="space-y-6">
@@ -381,7 +375,7 @@ const DelegationManager: React.FC = () => {
           {/* Extend Button - Only show for active delegations */}
           {isActive && (
             <button
-              onClick={() => setExtendingId(facultyId)}
+              onClick={() => setExtendingId(facultyId ?? null)}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold transition-colors"
             >
               📅 Extend
@@ -392,7 +386,7 @@ const DelegationManager: React.FC = () => {
           <button
             onClick={() => {
               if (window.confirm(`Revoke delegation for ${delegation.facultyId.firstName} ${delegation.facultyId.lastName}?`)) {
-                revokeDelegation.mutate(facultyId);
+                revokeDelegation.mutate(facultyId || '');
               }
             }}
             disabled={revokeDelegation.isPending}

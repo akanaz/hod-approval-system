@@ -214,7 +214,7 @@ export const logExit = async (
  * GET /api/security/today-approved
  */
 export const getTodayApproved = async (
-  req: Request,
+  _req: Request,
   res: Response
 ): Promise<Response> => {
   try {

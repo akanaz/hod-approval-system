@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -85,7 +85,7 @@ const hasDelegatedRights = (user: any) => {
   return endDate > now && (user.delegationPermissions?.length || 0) > 0;
 };
 
-const canEditRequest = (request: RequestItem, userId: string) => {
+const canEditRequest = (request: RequestItem, _userId: string) => {
   if (request.status !== 'PENDING') return false;
   return true;
 };
@@ -98,7 +98,6 @@ const canEditRequest = (request: RequestItem, userId: string) => {
 export default function FacultyDashboard() {
   const { logout, user } = useAuth();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState<'my-requests' | 'department-requests'>('my-requests');
 
@@ -296,7 +295,7 @@ export default function FacultyDashboard() {
               <p className="font-semibold text-blue-900">Delegated HOD Rights Active</p>
               <p className="text-sm text-blue-700">
                 You have been granted approval rights until{' '}
-                {new Date(user.delegationEndDate!).toLocaleDateString('en-IN')}
+                {new Date(user!.delegationEndDate!).toLocaleDateString('en-IN')}
               </p>
             </div>
           </div>
