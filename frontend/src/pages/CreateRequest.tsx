@@ -1,7 +1,7 @@
 // frontend/src/pages/CreateRequest.tsx
 // ✅ COMPLETE FIXED VERSION - File upload error fixed
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import api from '../services/api';
@@ -52,10 +52,32 @@ const getFileIcon = (mimeType?: string) => {
 
 /* ================= COMPONENT ================= */
 
+/* Statuses that block a new request for the same date.
+   REJECTED is included — HOD's decision is final for that date;
+   faculty should speak to HOD directly rather than resubmitting. */
+const BLOCKING_STATUSES = ['PENDING', 'APPROVED', 'REJECTED', 'MORE_INFO_NEEDED'];
+
+const statusLabel: Record<string, string> = {
+  PENDING: 'pending review',
+  APPROVED: 'already approved',
+  REJECTED: 'already rejected by HOD',
+  MORE_INFO_NEEDED: 'awaiting more information from you',
+};
+
 const CreateRequest: React.FC = () => {
   const navigate = useNavigate();
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<FileAttachment[]>([]);
+
+  // Pre-load faculty's own requests so date conflict checks are instant
+  const [existingRequests, setExistingRequests] = useState<any[]>([]);
+  const [dateConflict, setDateConflict] = useState<{ status: string } | null>(null);
+
+  useEffect(() => {
+    api.get('/requests').then(res => {
+      setExistingRequests(res.data.requests || []);
+    }).catch(() => { /* non-critical — submit will re-validate */ });
+  }, []);
 
   const [formData, setFormData] = useState({
     leaveType: 'PARTIAL' as LeaveType,
@@ -78,26 +100,20 @@ const CreateRequest: React.FC = () => {
       navigate('/faculty/dashboard');
     },
     onError: (error: any) => {
-      console.error('Create request error:', error);
       const errorMsg = error.response?.data?.message || 'Failed to create request';
       toast.error(errorMsg);
     }
   });
 
-  const checkExistingRequestForDate = async (date: string): Promise<boolean> => {
-    try {
-      const response = await api.get('/requests');
-      const requests = response.data.requests || [];
-      
-      return requests.some((req: any) => {
-        const reqDate = new Date(req.departureDate).toISOString().split('T')[0];
-        const checkDate = new Date(date).toISOString().split('T')[0];
-        return reqDate === checkDate && req.status === 'PENDING';
-      });
-    } catch (error) {
-      console.error('Error checking existing requests:', error);
-      return false;
-    }
+  /* Check the chosen date against pre-loaded requests and set inline warning */
+  const checkDateConflict = (date: string) => {
+    if (!date) { setDateConflict(null); return; }
+    const chosen = new Date(date).toISOString().split('T')[0];
+    const conflict = existingRequests.find((req: any) => {
+      const reqDate = new Date(req.departureDate).toISOString().split('T')[0];
+      return reqDate === chosen && BLOCKING_STATUSES.includes(req.status);
+    });
+    setDateConflict(conflict ? { status: conflict.status } : null);
   };
 
   const handleInputChange = (
@@ -105,6 +121,7 @@ const CreateRequest: React.FC = () => {
   ) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    if (name === 'departureDate') checkDateConflict(value);
   };
 
   const handleLeaveTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -207,9 +224,15 @@ const CreateRequest: React.FC = () => {
       return;
     }
 
-    const hasExisting = await checkExistingRequestForDate(formData.departureDate);
-    if (hasExisting) {
-      toast.error('You already have a request for this date');
+    // Re-validate at submit time (handles edge case where requests loaded after date was picked)
+    const chosen = new Date(formData.departureDate).toISOString().split('T')[0];
+    const conflict = existingRequests.find((req: any) => {
+      const reqDate = new Date(req.departureDate).toISOString().split('T')[0];
+      return reqDate === chosen && BLOCKING_STATUSES.includes(req.status);
+    });
+    if (conflict) {
+      toast.error(`You already have a request for this date that is ${statusLabel[conflict.status] ?? conflict.status}.`);
+      setDateConflict({ status: conflict.status });
       return;
     }
 
@@ -263,9 +286,30 @@ const CreateRequest: React.FC = () => {
                 value={formData.departureDate}
                 onChange={handleInputChange}
                 min={new Date().toISOString().split('T')[0]}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  dateConflict ? 'border-amber-400 bg-amber-50' : 'border-gray-300'
+                }`}
                 required
               />
+              {dateConflict && (
+                <div className="mt-2 flex items-start gap-2 p-3 bg-amber-50 border border-amber-300 rounded-lg">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-amber-800">
+                      You already have a request for this date that is {statusLabel[dateConflict.status] ?? dateConflict.status}.
+                    </p>
+                    <p className="text-xs text-amber-700 mt-0.5">
+                      {dateConflict.status === 'APPROVED'
+                        ? 'An approved pass already exists for this date. You cannot submit another request.'
+                        : dateConflict.status === 'REJECTED'
+                        ? 'Your request for this date was rejected by the HOD. Please contact your HOD directly if circumstances have changed.'
+                        : dateConflict.status === 'MORE_INFO_NEEDED'
+                        ? "Please respond to the HOD's request for more information on your existing request instead."
+                        : 'Please wait for your existing request to be resolved before submitting a new one.'}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {formData.leaveType === 'PARTIAL' && (
@@ -486,8 +530,9 @@ const CreateRequest: React.FC = () => {
               </button>
               <button
                 type="submit"
-                disabled={createMutation.isPending || isUploading}
+                disabled={createMutation.isPending || isUploading || !!dateConflict}
                 className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title={dateConflict ? `Cannot submit: request for this date is ${statusLabel[dateConflict.status] ?? dateConflict.status}` : undefined}
               >
                 {createMutation.isPending ? 'Submitting...' : 'Submit Request'}
               </button>
