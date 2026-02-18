@@ -212,36 +212,53 @@ export default function SecurityDashboard() {
   /* ── Camera: start ── */
   const startCamera = async () => {
     try {
+      // Request camera — keep this in the button-click handler to stay in
+      // user-gesture context (required by iOS Safari for getUserMedia).
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        video: { facingMode: { ideal: 'environment' } },
       });
-      if (!videoRef.current) return;
-      videoRef.current.srcObject = stream;
-      await videoRef.current.play();
+
+      // Store stream and show the viewfinder BEFORE attaching to video.
+      // The video element is always in the DOM (just hidden), so videoRef
+      // is never null here — this was the original bug.
       streamRef.current = stream;
       setCameraActive(true);
       scanningRef.current = true;
 
-      // jsQR canvas scan loop — works in all browsers
+      const video = videoRef.current!;
+      video.srcObject = stream;
+      // play() may throw on some browsers if the element isn't yet visible;
+      // the autoPlay attribute on the <video> handles that case.
+      try { await video.play(); } catch { /* autoPlay attr covers Safari */ }
+
+      // jsQR canvas scan loop — works in all browsers (Chrome, Firefox, Safari)
       const scan = () => {
         if (!scanningRef.current || !videoRef.current || !canvasRef.current) return;
-        const video = videoRef.current;
+        const vid = videoRef.current;
         const canvas = canvasRef.current;
-        if (video.readyState === video.HAVE_ENOUGH_DATA) {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
+        // Guard: videoWidth === 0 means frames aren't ready yet
+        if (vid.readyState >= vid.HAVE_ENOUGH_DATA && vid.videoWidth > 0) {
+          canvas.width = vid.videoWidth;
+          canvas.height = vid.videoHeight;
           const ctx = canvas.getContext('2d');
           if (ctx) {
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const code = jsQR(imageData.data, imageData.width, imageData.height, {
               inversionAttempts: 'dontInvert',
             });
             if (code) {
-              setScanInput(code.data);
+              // QR encodes a JSON object — pull just the exitPassNumber.
+              // Fall back to raw value for hardware scanners that encode only the pass number.
+              let passValue = code.data;
+              try {
+                const parsed = JSON.parse(code.data) as { exitPassNumber?: string };
+                if (parsed.exitPassNumber) passValue = parsed.exitPassNumber;
+              } catch { /* raw value — use as-is */ }
+              setScanInput(passValue);
               stopCamera();
               toast.success('QR code detected!');
-              handleVerifyWithValue(code.data);
+              handleVerifyWithValue(passValue);
               return;
             }
           }
@@ -249,8 +266,17 @@ export default function SecurityDashboard() {
         if (scanningRef.current) requestAnimationFrame(scan);
       };
       requestAnimationFrame(scan);
-    } catch {
-      toast.error('Camera access denied. Please allow camera permission.');
+    } catch (err: any) {
+      const name = (err as { name?: string })?.name ?? '';
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+        toast.error('Camera permission denied. Allow camera access in browser settings and retry.');
+      } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+        toast.error('No camera found on this device.');
+      } else {
+        toast.error('Could not start camera. Please check permissions and try again.');
+      }
+      setCameraActive(false);
+      scanningRef.current = false;
     }
   };
 
@@ -419,35 +445,36 @@ export default function SecurityDashboard() {
               )}
             </div>
 
-            {/* Hidden canvas for jsQR scanning */}
+            {/* Hidden canvas for jsQR scanning — always in DOM */}
             <canvas ref={canvasRef} className="hidden" />
 
-            {/* Camera viewfinder */}
-            {cameraActive && (
-              <div className="mt-4 relative rounded-xl overflow-hidden border-2 border-teal-400 shadow-md bg-black">
-                <video
-                  ref={videoRef}
-                  className="w-full max-h-72 object-cover"
-                  muted
-                  playsInline
-                />
-                {/* Scan overlay */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="w-48 h-48 border-4 border-teal-400 rounded-xl opacity-70 relative">
-                    {/* Corner accents */}
-                    <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-white rounded-tl-sm" />
-                    <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-white rounded-tr-sm" />
-                    <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-white rounded-bl-sm" />
-                    <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-white rounded-br-sm" />
-                  </div>
-                </div>
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-4 py-3">
-                  <p className="text-white text-sm text-center font-medium">
-                    📷 Point the QR code at the camera
-                  </p>
+            {/* Camera viewfinder — always in DOM so videoRef is never null.
+                Visibility is controlled by the 'hidden' class, NOT conditional
+                rendering. This was the root cause of the blank camera preview. */}
+            <div className={`mt-4 relative rounded-xl overflow-hidden border-2 border-teal-400 shadow-md bg-black${cameraActive ? '' : ' hidden'}`}>
+              <video
+                ref={videoRef}
+                className="w-full max-h-72 object-cover"
+                muted
+                playsInline
+                autoPlay
+              />
+              {/* Scan overlay */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-48 h-48 border-4 border-teal-400 rounded-xl opacity-70 relative">
+                  {/* Corner accents */}
+                  <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-white rounded-tl-sm" />
+                  <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-white rounded-tr-sm" />
+                  <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-white rounded-bl-sm" />
+                  <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-white rounded-br-sm" />
                 </div>
               </div>
-            )}
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-4 py-3">
+                <p className="text-white text-sm text-center font-medium">
+                  📷 Point the QR code at the camera
+                </p>
+              </div>
+            </div>
 
             <p className="text-slate-400 text-xs mt-2">
               Tip: A hardware QR scanner will auto-fill and press Enter to verify.
