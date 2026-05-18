@@ -81,8 +81,15 @@ export const verifyExitPass = async (
       if (meridiem?.toUpperCase() === 'PM' && hour !== 12) hour += 12;
       if (meridiem?.toUpperCase() === 'AM' && hour === 12) hour = 0;
 
-      const depDateTime = new Date(departureDate);
-      depDateTime.setHours(hour, minute, 0, 0);
+      const depDateTime = new Date(
+  departureDate.getFullYear(),
+  departureDate.getMonth(),
+  departureDate.getDate(),
+  hour,
+  minute,
+  0,
+  0
+);
 
       const diffMs = now.getTime() - depDateTime.getTime();
       const diffHours = diffMs / (1000 * 60 * 60);
